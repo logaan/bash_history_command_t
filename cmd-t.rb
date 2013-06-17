@@ -1,10 +1,19 @@
 #!/usr/bin/env ruby
 
 QUIT_CODE = "\u0003"
+NEXT_CODE = "\x0E"
+PREV_CODE = "\x10"
 
 HISTORY = File.read("/Users/logaan/.bash_history").split("\n")
-BOLD = `tput smso`
-OFFBOLD = `tput rmso`
+
+BLUE_BACKGROUND   = `tput setab 4`
+WHILE_FOREGROUND  = `tput setaf 7`
+YELLOW_FOREGROUND = `tput setaf 3`
+
+SELECT    = BLUE_BACKGROUND
+UNSELECT  = `tput sgr0`
+HIGHLIGHT = YELLOW_FOREGROUND
+RESET     = WHILE_FOREGROUND
 
 def getkey
   begin
@@ -16,18 +25,23 @@ def getkey
   key
 end
 
-def display_results(query, results)
-  formatted = results.uniq.reverse.map{|l| format_line(query, l) }.to_a[0..10]
+def display_results(query, results, selected_line)
+  uniqued   = results.uniq
+  ordered   = uniqued.reverse
+  formatted = ordered.map{|l| format_line(query, l) }
+  trimmed   = formatted.to_a[0..10]
+
+  trimmed[selected_line] = SELECT + trimmed[selected_line] + UNSELECT
 
   print "[H[J"
   puts query
   puts
-  puts formatted
+  puts trimmed
 end
 
 def format_line(query, line)
   line = line[0...80]
-  line = line.gsub(fuzz(query), BOLD + '\0' + OFFBOLD)
+  line = line.gsub(fuzz(query), HIGHLIGHT + '\0' + RESET)
   line
 end
 
@@ -45,9 +59,20 @@ def add_key_to_query(key, query)
 end
 
 query = ""
+selected_line = 0
+
 while key = getkey
-  exit if key == QUIT_CODE
-  query = add_key_to_query(key, query)
-  display_results(query, HISTORY.grep(fuzz(query)))
+  case key
+  when QUIT_CODE
+    exit
+  when NEXT_CODE
+    selected_line += 1
+  when PREV_CODE
+    selected_line -= 1
+  else
+    query = add_key_to_query(key, query)
+  end
+
+  display_results(query, HISTORY.grep(fuzz(query)), selected_line)
 end
 
