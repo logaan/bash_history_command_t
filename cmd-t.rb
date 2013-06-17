@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+CLEAR = "[H[J"
+
 QUIT_CODE = "\u0003"
 NEXT_CODE = "\x0E"
 PREV_CODE = "\x10"
@@ -26,14 +28,12 @@ def getkey
 end
 
 def display_results(query, results, selected_line)
-  uniqued   = results.uniq
-  ordered   = uniqued.reverse
-  formatted = ordered.map{|l| format_line(query, l) }
+  formatted = results.map{|l| format_line(query, l) }
   trimmed   = formatted.to_a[0..10]
 
   trimmed[selected_line] = SELECT + trimmed[selected_line] + UNSELECT
 
-  print "[H[J"
+  print CLEAR
   puts query
   puts
   puts trimmed
@@ -46,8 +46,7 @@ def format_line(query, line)
 end
 
 def fuzz(query)
-  pattern = Regexp.new(query.each_char.to_a.join(".*?"))
-  pattern
+  Regexp.new(query.each_char.to_a.join(".*?"))
 end
 
 def add_key_to_query(key, query)
@@ -56,6 +55,10 @@ def add_key_to_query(key, query)
   else
     query + key
   end
+end
+
+def search(query)
+  HISTORY.grep(fuzz(query)).uniq
 end
 
 query = ""
@@ -69,10 +72,17 @@ while key = getkey
     selected_line += 1
   when PREV_CODE
     selected_line -= 1
+  when "\r"
+    results = search(query)
+    command = results[selected_line]
+
+    puts CLEAR
+    puts command
+    exec command
   else
     query = add_key_to_query(key, query)
   end
 
-  display_results(query, HISTORY.grep(fuzz(query)), selected_line)
+  display_results(query, search(query), selected_line)
 end
 
